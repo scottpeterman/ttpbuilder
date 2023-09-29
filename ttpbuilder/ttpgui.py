@@ -1,20 +1,38 @@
-import json
+from PyQt6.QtCore import Qt, QEvent
+from PyQt6.QtGui import QTextCursor, QAction
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPlainTextEdit, QListWidget, QMenu, \
+    QMenuBar, QPushButton, QDialog, QLabel, QLineEdit, QSplitter, QHBoxLayout
 
-from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QTextCursor, QColor, QTextCharFormat, QAction
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QPlainTextEdit, QListWidget, QInputDialog, QMenu, \
-    QMenuBar, QListWidgetItem, QPushButton, QDialog, QLabel, QLineEdit, QTextBrowser, QHBoxLayout, QSplitter
+from ttpbuilder.Library.util import show_ttp_help, name_selection, generate_template, highlight_text, \
+    show_about_dialog, open_basics_dialog, restrict_to_single_line
 
 
-from ttp import ttp
-from ttpbuilder.Library.util import name_selection, generate_template, highlight_text
+from PyQt6.QtGui import QMouseEvent
+
+class ClickablePlainTextEdit(QPlainTextEdit):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+        self.setMouseTracking(True)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+
+    def mousePressEvent(self, event: QMouseEvent):
+        super().mousePressEvent(event)
+        cursor = self.textCursor()
+        position = cursor.position()
+
+        # Check if clicked text corresponds to a named selection
+        for unique_id, data in self.parent.named_selections.items():
+            if data['start'] <= position <= data['end']:
+                self.parent.customize_ttp_entry(data['list_widget_item'])
+                break
 
 
 class TTPGuiUI(QWidget):
     def __init__(self):
         super().__init__()
         self.initialize_theme("dark")
+        self.named_selections = {}
         self.initUI()
 
     def initUI(self):
@@ -30,17 +48,17 @@ class TTPGuiUI(QWidget):
 
         # Add Basics action
         basics_action = QAction("Basics", self)
-        basics_action.triggered.connect(self.open_basics_dialog)
+        basics_action.triggered.connect(lambda: open_basics_dialog(self))
         help_menu.addAction(basics_action)
 
         # Add TTP Help action
         ttp_help_action = QAction("TTP Help", self)
-        ttp_help_action.triggered.connect(self.show_ttp_help)
+        ttp_help_action.triggered.connect(lambda: show_ttp_help(self))
         help_menu.addAction(ttp_help_action)
 
         # Add About action
         about_action = QAction("About", self)
-        about_action.triggered.connect(self.show_about_dialog)
+        about_action.triggered.connect(lambda: show_about_dialog(self))
         help_menu.addAction(about_action)
 
         # Add Reset action
@@ -50,11 +68,11 @@ class TTPGuiUI(QWidget):
 
         main_layout.addWidget(menubar)
 
-        # Create QHBoxLayout
-        control_layout = QHBoxLayout()
-
         # Create QPlainTextEdit and make it read-only after initial text is entered
-        self.text_edit = QPlainTextEdit()
+        # self.text_edit = QPlainTextEdit()
+        self.text_edit = ClickablePlainTextEdit(self)
+        self.text_edit.installEventFilter(self)
+
         self.text_edit.textChanged.connect(self.make_readonly)
         self.text_edit.setMinimumHeight(600)
 
@@ -97,64 +115,32 @@ class TTPGuiUI(QWidget):
         # Context menu
         self.text_edit.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.text_edit.customContextMenuRequested.connect(self.show_context_menu)
-        self.text_edit.selectionChanged.connect(self.restrict_to_single_line)
+        self.text_edit.selectionChanged.connect(lambda: restrict_to_single_line(self))
 
         self.list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.list_widget.customContextMenuRequested.connect(self.show_list_context_menu)
 
-    def open_basics_dialog(self):
-        dialog = QDialog(self)
-        dialog.setWindowTitle('Basics - How to Use')
-        layout = QVBoxLayout()
+    def eventFilter(self, obj, event):
+        if obj == self.text_edit and event.type() == QEvent.Type.HoverMove:
+            # Directly get cursor position during hover event
+            hover_cursor = self.text_edit.cursorForPosition(event.position().toPoint())
+            position = hover_cursor.position()
 
-        text_browser = QTextBrowser()
-        text_browser.setMinimumWidth(500)
+            is_clickable = False
 
-        how_to_text = '''
-<ol>
-        <li><strong>Paste Sample Data:</strong> Open the app and paste your sample text data into the text editor on the left-hand side.</li>
-        <li><strong>Reset:</strong> Once you past data in the text area, you cannot edit it. Use File/Reset to start over</li>
-        <li><strong>Named Selections:</strong> After pasting text data, highlight a section of the text that you want to be a variable in the TTP template. Right-click and choose "Create Named Selection".</li>
-        <li><strong>Variable List:</strong> This will populate the ListWidget on the right with your identified variables. You can edit or remove these as necessary.</li>
-        <li><strong>Generate Template:</strong> Once you've highlighted all variables of interest, click on the 'Generate Template' button at the bottom to create the TTP template.</li>
-    </ol>
-            '''
-        text_browser.setMarkdown(how_to_text)
+            # Check if hovered text corresponds to a named selection
+            for unique_id, data in self.named_selections.items():
+                if position >= data['start'] and position <= data['end']:
+                    is_clickable = True
+                    break
 
-        layout.addWidget(text_browser)
+            if is_clickable:
+                QApplication.setOverrideCursor(Qt.CursorShape.PointingHandCursor)
+            else:
+                QApplication.restoreOverrideCursor()
 
-        dialog.setLayout(layout)
-        dialog.exec()
-
-
-    def show_ttp_help(self):
-        ttp_help_dialog = QDialog(self)
-        ttp_help_dialog.setWindowTitle("TTP Help")
-
-        layout = QVBoxLayout()
-
-        web_view = QWebEngineView()
-        web_view.setUrl(QUrl("https://ttp.readthedocs.io/en/latest/"))
-
-        layout.addWidget(web_view)
-        ttp_help_dialog.setLayout(layout)
-
-        ttp_help_dialog.exec()
-
-    def show_about_dialog(self):
-        about_dialog = QDialog(self)
-        about_dialog.setWindowTitle("About")
-
-        layout = QVBoxLayout()
-
-        text_browser = QTextBrowser()
-        text_browser.setHtml("Author: Scott Peterman <br> Github: <a href='https://github.com/scottpeterman'>Github Link</a>")
-        text_browser.setOpenExternalLinks(True)
-        layout.addWidget(text_browser)
-        about_dialog.setLayout(layout)
-
-        about_dialog.exec()
-
+            return True  # Return True if you want to stop event propagation
+        return False  # Continue event propagation otherwise
     def initialize_theme(self, theme="light"):
         # Load the theme from a config file, or database, etc.
         # This is just a dummy example; your actual loading logic will vary.
@@ -186,39 +172,25 @@ class TTPGuiUI(QWidget):
         row = self.list_widget.row(item)
         self.list_widget.takeItem(row)
 
-    def restrict_to_single_line(self):
-        cursor = self.text_edit.textCursor()
-        start = cursor.selectionStart()
-        end = cursor.selectionEnd()
-
-        cursor.setPosition(start, QTextCursor.MoveMode.MoveAnchor)
-        start_line = cursor.blockNumber()
-
-        cursor.setPosition(end, QTextCursor.MoveMode.MoveAnchor)
-        end_line = cursor.blockNumber()
-
-        if start_line != end_line:
-            # If the selection is across multiple lines, restrict it to the start line
-            cursor.setPosition(start, QTextCursor.MoveMode.MoveAnchor)
-            cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock, QTextCursor.MoveMode.KeepAnchor, 1)
-            self.text_edit.setTextCursor(cursor)
 
     def customize_ttp_entry(self, item):
+        QApplication.restoreOverrideCursor()
         dialog = QDialog(self)
         dialog.setWindowTitle('Customize TTP Entry')
-
-        layout = QVBoxLayout()
+        dialog.setMinimumWidth(400)
+        layout = QHBoxLayout()
         layout.addWidget(QLabel("{{"))
-
         input_text = QLineEdit()
+        current_entry = item.ttp_text
+        if len(current_entry)>4:
+            current_entry = current_entry.replace("{{","")
+            current_entry = current_entry.replace("}}", "")
+        input_text.setText(current_entry)
         layout.addWidget(input_text)
-
         layout.addWidget(QLabel("}}"))
-
         ok_button = QPushButton("OK")
         ok_button.clicked.connect(dialog.accept)
         layout.addWidget(ok_button)
-
         dialog.setLayout(layout)
 
         if dialog.exec() == QDialog.DialogCode.Accepted:

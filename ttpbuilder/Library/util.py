@@ -1,9 +1,84 @@
 # util.py
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from ttp import ttp
 from PyQt6.QtGui import QTextCursor, QTextCharFormat, QColor
-from PyQt6.QtWidgets import QInputDialog, QListWidgetItem, QDialog, QVBoxLayout, QTextBrowser, QPushButton,QPlainTextEdit
+from PyQt6.QtCore import QUrl
+from PyQt6.QtWidgets import QInputDialog, QListWidgetItem, QDialog, QVBoxLayout, QTextBrowser, QPushButton, \
+    QPlainTextEdit
 import json
 from ttpbuilder.HighlighterTEWidget import SyntaxHighlighter
+import uuid
+
+def restrict_to_single_line(self):
+    cursor = self.text_edit.textCursor()
+    start = cursor.selectionStart()
+    end = cursor.selectionEnd()
+
+    cursor.setPosition(start, QTextCursor.MoveMode.MoveAnchor)
+    start_line = cursor.blockNumber()
+
+    cursor.setPosition(end, QTextCursor.MoveMode.MoveAnchor)
+    end_line = cursor.blockNumber()
+
+    if start_line != end_line:
+        # If the selection is across multiple lines, restrict it to the start line
+        cursor.setPosition(start, QTextCursor.MoveMode.MoveAnchor)
+        cursor.movePosition(QTextCursor.MoveOperation.EndOfBlock, QTextCursor.MoveMode.KeepAnchor, 1)
+        self.text_edit.setTextCursor(cursor)
+
+def show_ttp_help(self):
+    ttp_help_dialog = QDialog(self)
+    ttp_help_dialog.setWindowTitle("TTP Help")
+
+    layout = QVBoxLayout()
+
+    web_view = QWebEngineView()
+    web_view.setUrl(QUrl("https://ttp.readthedocs.io/en/latest/"))
+
+    layout.addWidget(web_view)
+    ttp_help_dialog.setLayout(layout)
+
+    ttp_help_dialog.exec()
+
+def open_basics_dialog(self):
+    dialog = QDialog(self)
+    dialog.setWindowTitle('Basics - How to Use')
+    layout = QVBoxLayout()
+
+    text_browser = QTextBrowser()
+    text_browser.setMinimumWidth(500)
+
+    how_to_text = '''
+<ol>
+    <li><strong>Paste Sample Data:</strong> Open the app and paste your sample text data into the text editor on the left-hand side.</li>
+    <li><strong>Reset:</strong> Once you past data in the text area, you cannot edit it. Use File/Reset to start over</li>
+    <li><strong>Named Selections:</strong> After pasting text data, highlight a section of the text that you want to be a variable in the TTP template. Right-click and choose "Create Named Selection".</li>
+    <li><strong>Variable List:</strong> This will populate the ListWidget on the right with your identified variables. You can edit or remove these as necessary.</li>
+    <li><strong>Generate Template:</strong> Once you've highlighted all variables of interest, click on the 'Generate Template' button at the bottom to create the TTP template.</li>
+</ol>
+        '''
+    text_browser.setMarkdown(how_to_text)
+
+    layout.addWidget(text_browser)
+
+    dialog.setLayout(layout)
+    dialog.exec()
+
+def show_about_dialog(self):
+    about_dialog = QDialog(self)
+    about_dialog.setWindowTitle("About")
+
+    layout = QVBoxLayout()
+
+    text_browser = QTextBrowser()
+    text_browser.setHtml(
+        "Author: Scott Peterman <br> Github: <a href='https://github.com/scottpeterman/ttpbuilder'>TTP Builder</a>")
+    text_browser.setOpenExternalLinks(True)
+    layout.addWidget(text_browser)
+    about_dialog.setLayout(layout)
+
+    about_dialog.exec()
+
 
 def name_selection(parent):
     current_theme = parent.current_theme
@@ -31,6 +106,13 @@ def name_selection(parent):
         new_item.line_pos = start_line
         new_item.original_line_text = original_line_text
         new_item.ttp_text =  f"{{{{{name}}}}}"
+        unique_id = str(uuid.uuid4())
+        new_item.unique_id = unique_id
+        parent.named_selections[unique_id] = {
+            'start': start,
+            'end': end,
+            'list_widget_item': new_item
+        }
 
         parent.list_widget.addItem(new_item)
 
