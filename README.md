@@ -2,7 +2,7 @@
 
 ## Introduction
 
-TTP Builder is a Python-based GUI application built using PyQt6 that facilitates the creation and management of Text-based Template Parsing (TTP) templates. TTP Builder offers a seamless user experience for network engineers familiar with TTP, TextFSM, and Genie. 
+TTP Builder is a Python-based GUI application built using PyQt6 that facilitates the creation and testing of Text-based Template Parsing (TTP) templates. TTP Builder offers a seamless user experience for network engineers familiar with TTP, TextFSM, and Genie. 
 
 ## Features
 
