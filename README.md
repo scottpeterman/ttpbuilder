@@ -10,7 +10,16 @@ TTP Builder is a Python-based GUI application built using PyQt6 that facilitates
 - **Named Selections**: A ListWidget displays identified variables parsed from the sample text data.
 - **Template Generator**: A 'Generate Template' button for automated TTP template creation.
 - **Help System**: In-app help documentation linking directly to TTP's official documentation and an "About" section.
+
+## Screen Shots
+
+<div align="center">
+  <img src="https://github.com/scottpeterman/ttpbuilder/raw/main/screen-shots/builder.png" alt="builder.png" width="400px">
+  <hr><img src="https://github.com/scottpeterman/ttpbuilder/raw/main/screen-shots/template.png" alt="template.png" width="400px">
+  <hr><img src="https://github.com/scottpeterman/ttpbuilder/raw/main/screen-shots/result.png" alt="result.png" width="400px">
   
+</div>
+
 ## Pre-requisites
 
 - Python 3.x
